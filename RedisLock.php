@@ -35,6 +35,8 @@ class RedisLock
 
     private $_redis;
 
+    private $_lockKey;
+
     public function __construct()
     {
         //todo 此处自己实现redis连接
@@ -65,11 +67,9 @@ class RedisLock
     }
 
 
-    public function unlock($key)
+    public function unlock()
     {
-        $key = $this->_keyPrefix . $key;
         $flag = $this->_lockOwnerId;
-
         //此处保证只解锁自己的锁
         $script = <<<SCRIPT
                 if redis.call("get",KEYS[1]) == ARGV[1]
@@ -79,7 +79,7 @@ class RedisLock
                     return 0
                 end
 SCRIPT;
-        return $this->_redis->rawCommand('EVAL', $script, 1, $key, $flag);
+        return $this->_redis->rawCommand('EVAL', $script, 1, $this->_lockKey, $flag);
 
     }
 
@@ -96,6 +96,7 @@ SCRIPT;
         $flag = md5(microtime(true));
         if ($this->_redis->set($key, $flag, ['NX', 'EX' => $ttl])) {
             $this->_lockOwnerId = $flag;
+            $this->_lockKey = $key;
             return true;
         }
         return false;
